@@ -19,6 +19,7 @@
 #include <map>
 #include <stdio.h>
 #include <string>
+#include <functional>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "myRegex.h"
@@ -47,6 +48,7 @@ using std::multimap;
 #define SEARCH_PORT_RTP_FROM 	10330 // '10330' is chosen at random(must be a even number)
 
 typedef void (*DESTROIED_CLBK) ();
+typedef std::function<void(void)> DESTROYED_CLBK;
 
 enum SessionType {
     VIDEO_SESSION = 0, 
@@ -275,8 +277,11 @@ class RtspClient
 	public:
 		void SetDestroiedClbk(MediaSession * media_session, DESTROIED_CLBK clbk);
 		void SetDestroiedClbk(string media_type, DESTROIED_CLBK clbk);
+		void SetDestroiedClbk(MediaSession * media_session, DESTROYED_CLBK clbk);
+		void SetDestroiedClbk(string media_type, DESTROYED_CLBK clbk);
 		void SetAudioByeFromServerClbk(DESTROIED_CLBK clbk);
 		void SetVideoByeFromServerClbk(DESTROIED_CLBK clbk);
+		void SetVideoByeFromServerClbk(DESTROYED_CLBK clbk);
 
 		int GetSessionTimeout(string media_type);
 		int GetSessionTimeout(MediaSession * media_session);

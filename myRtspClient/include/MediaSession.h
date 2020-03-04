@@ -20,6 +20,7 @@
 #include <string>
 #include <stdint.h>
 #include <vector>
+#include <functional>
 
 #include "nalu_types.h"
 #include "frame_type_base.h"
@@ -53,13 +54,15 @@ class MediaSession
 		/* Wait 1 second for TEARDOWN at default */
 		int RTP_Teardown(struct timeval * tval = NULL);
 
+		int PollMediaData();
+
 		/* Function Name: GetMediaData;
 		 * Description: Get RTP payload;
 		 * note:
 		 * <timeout_ms> in unit of microsecond.
 		 * Why we set 'timeout' here is to avoid continuously occupying CPU.
 		 * */
-		uint8_t * GetMediaData(uint8_t * buf, size_t * size, unsigned long timeout_ms = TIMEOUT_MICROSECONDS);
+		uint8_t * GetMediaData(uint8_t * buf, size_t * size, unsigned long timeout_ms = TIMEOUT_MICROSECONDS, size_t max_size = 0);
 
 		/* Function Name: GetMediaPacket;
 		 * Description: Get RTP Packet;
@@ -71,6 +74,7 @@ class MediaSession
 
 		int MediaInfoCheck();
 		void SetRtpDestroiedClbk(void (*clbk)());
+		void SetRtpDestroiedClbk(std::function<void(void)> clbk);
         void SetRtspCmdClbk(void (*clbk)(char * cmd));
 
         void LockSocket();

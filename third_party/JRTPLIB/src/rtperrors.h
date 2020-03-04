@@ -246,6 +246,7 @@ std::string JRTPLIB_IMPORTEXPORT RTPGetErrorString(int errcode);
 #define ERR_RTP_TCPTRANS_SOCKETNOTFOUNDINDESTINATIONS             -195
 #define ERR_RTP_TCPTRANS_ERRORINSEND                              -196
 #define ERR_RTP_TCPTRANS_ERRORINRECV                              -197
+#define ERR_RTP_TCPTRANS_RECVTIMEOUT                              -198
 
 #endif // RTPERRORS_H
 

@@ -35,7 +35,8 @@ class MyRTPUDPSession : public MyRTPSession
 
 		/* Wait 1 second for TEARDOWN at default */
 		void MyRTP_Teardown(MediaSession * media_session, struct timeval * tval = NULL);
-		uint8_t * GetMyRTPData(uint8_t * data_buf, size_t * size, unsigned long timeout_ms);
+		int MyRTPPoll();
+		uint8_t * GetMyRTPData(uint8_t * data_buf, size_t * size, unsigned long timeout_ms, size_t max_size = 0);
 		uint8_t * GetMyRTPPacket(uint8_t * packet_buf, size_t * size, unsigned long timeout_ms);
 
 		void SetDestroiedClbk(void (*clbk)()) {DestroiedClbk = clbk;}

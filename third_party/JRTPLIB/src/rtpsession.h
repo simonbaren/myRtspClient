@@ -335,7 +335,7 @@ public:
 	 *  or NULL if no more packets are available. When the packet is no longer needed, its
 	 *  memory should be freed using the DeletePacket member function.
 	 */
-	RTPPacket *GetNextPacket();
+	RTPPacket *GetNextPacket(ssize_t *max_size = nullptr);
 
     /** Returns the Sequence Number that will be used in the next SendPacket function call. */
     uint16_t GetNextSequenceNumber() const;

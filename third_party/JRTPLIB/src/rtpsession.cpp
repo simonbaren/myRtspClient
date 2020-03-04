@@ -1110,11 +1110,11 @@ RTPSourceData *RTPSession::GetSourceInfo(uint32_t ssrc)
 	return sources.GetSourceInfo(ssrc);
 }
 
-RTPPacket *RTPSession::GetNextPacket()
+RTPPacket *RTPSession::GetNextPacket(ssize_t *max_size)
 {
 	if (!created)
 		return 0;
-	return sources.GetNextPacket();
+	return sources.GetNextPacket(max_size);
 }
 
 uint16_t RTPSession::GetNextSequenceNumber() const

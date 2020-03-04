@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <string>
+#include <functional>
 
 #define RTP_OK      1
 #define RTP_ERROR   0
@@ -37,6 +38,7 @@
 #define USLEEP_UNIT     10000
 
 typedef void (*DESTROIED_RTP_CLBK) ();
+typedef std::function<void(void)> DESTROYED_RTP_CLBK;;
 
 
 using namespace jrtplib;
@@ -54,10 +56,12 @@ class MyRTPSession : public RTPSession
 
 		/* Wait 1 second for TEARDOWN at default */
 		virtual void MyRTP_Teardown(MediaSession * media_session, struct timeval * tval = NULL){}
-		virtual uint8_t * GetMyRTPData(uint8_t * data_buf, size_t * size, unsigned long timeout_ms) {return NULL;}
+		virtual int MyRTPPoll() {return 0;}
+		virtual uint8_t * GetMyRTPData(uint8_t * data_buf, size_t * size, unsigned long timeout_ms, size_t max_size = 0) {return NULL;}
 		virtual uint8_t * GetMyRTPPacket(uint8_t * packet_buf, size_t * size, unsigned long timeout_ms) {return NULL;}
 
 		virtual void SetDestroiedClbk(DESTROIED_RTP_CLBK clbk) {DestroiedClbk = clbk;}
+		virtual void SetDestroiedClbk(DESTROYED_RTP_CLBK clbk) {DestroyedClbk = clbk;}
         // virtual DESTROIED_RTP_CLBK GetDestroiedClbk() { return DestroiedClbk; }
 		virtual void SetRecvRtspCmdClbk(void (*clbk)(char * cmd)) {}
         // virtual RECV_RTSP_CMD_CLBK GetRecvRtspCmdClbk() { return RecvRtspCmd; }
@@ -90,6 +94,7 @@ class MyRTPSession : public RTPSession
 
 	private:
 		DESTROIED_RTP_CLBK DestroiedClbk;
+		DESTROYED_RTP_CLBK DestroyedClbk;
 
     // private:
     //     bool isHttpTunneling;

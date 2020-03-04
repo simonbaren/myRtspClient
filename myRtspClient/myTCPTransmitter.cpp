@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <chrono>
 
 #include "myRegex.h"
 #include "rtprawpacket.h"
@@ -55,6 +56,7 @@ int MyTCPTransmitter::PollSocket(SocketType sock, SocketData &sdata)
     bool complete = false;
 
     do {
+        complete = false;
         len = 0;
         // offset = 0;
         RTPIOCTL(sock, FIONREAD, &len);
@@ -152,11 +154,21 @@ int MyTCPTransmitter::PollSocket(SocketType sock, SocketData &sdata)
                         m_dataLength = (m_httpTunnelHeaderBuffer[2] << 8) + m_httpTunnelHeaderBuffer[3];
                         m_lengthBufferOffset = 0;
                         m_recvstate = RECV_DATA;
+                        m_lastRecieve = std::chrono::steady_clock::now();
                         // printf("header: %d, %d\n", m_isrtp, m_dataLength);
 
                         break;
                     }
                 case RECV_DATA:
+                    if (len < m_dataLength) {
+                        auto now = std::chrono::steady_clock::now();
+                        if (std::chrono::duration_cast<std::chrono::milliseconds>(now-m_lastRecieve).count() > 1000) {
+                            return ERR_RTP_TCPTRANS_RECVTIMEOUT;
+                        }
+                        std::cout << "Not enough data len=" << len << " data=" << m_dataLength << "...\n";
+                        dataavailable = false;
+                        break;
+                    }
                     m_pDataBuffer = RTPNew(GetMemoryManager(), RTPMEM_TYPE_BUFFER_RECEIVEDRTPPACKET) uint8_t[m_dataLength];
                     if(0 == m_pDataBuffer) {
                         return ERR_RTP_OUTOFMEM;
@@ -177,27 +189,28 @@ int MyTCPTransmitter::PollSocket(SocketType sock, SocketData &sdata)
                     break;
             }
         }
-    }while(dataavailable && !complete);
 
-    if(complete) {
-        RTPTime curtime = RTPTime::CurrentTime();
-        uint8_t *pBuf = m_pDataBuffer;
-        m_pDataBuffer = 0;
-        if(pBuf) {
-            RTPTCPAddress *pAddr = RTPNew(GetMemoryManager(),RTPMEM_TYPE_CLASS_RTPADDRESS) RTPTCPAddress(sock);
-            if(0 == pAddr) {
-                return ERR_RTP_OUTOFMEM;
+        if(complete) {
+            RTPTime curtime = RTPTime::CurrentTime();
+            uint8_t *pBuf = m_pDataBuffer;
+            m_pDataBuffer = 0;
+            if(pBuf) {
+                RTPTCPAddress *pAddr = RTPNew(GetMemoryManager(),RTPMEM_TYPE_CLASS_RTPADDRESS) RTPTCPAddress(sock);
+                if(0 == pAddr) {
+                    return ERR_RTP_OUTOFMEM;
+                }
+                RTPRawPacket *pPack = RTPNew(GetMemoryManager(),RTPMEM_TYPE_CLASS_RTPRAWPACKET) RTPRawPacket(pBuf, m_dataLength, pAddr, curtime, m_isrtp, GetMemoryManager());
+                if (pPack == 0)
+                {
+                    RTPDelete(pAddr,GetMemoryManager());
+                    RTPDeleteByteArray(pBuf,GetMemoryManager());
+                    return ERR_RTP_OUTOFMEM;
+                }
+                m_rawpacketlist.push_back(pPack);
             }
-            RTPRawPacket *pPack = RTPNew(GetMemoryManager(),RTPMEM_TYPE_CLASS_RTPRAWPACKET) RTPRawPacket(pBuf, m_dataLength, pAddr, curtime, m_isrtp, GetMemoryManager());
-            if (pPack == 0)
-            {
-                RTPDelete(pAddr,GetMemoryManager());
-                RTPDeleteByteArray(pBuf,GetMemoryManager());
-                return ERR_RTP_OUTOFMEM;
-            }
-            m_rawpacketlist.push_back(pPack);	
         }
-    }
+    }while(dataavailable);
+
 
     return 0;
 }

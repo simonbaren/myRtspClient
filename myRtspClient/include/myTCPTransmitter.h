@@ -33,7 +33,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <string>
-
+#include <chrono>
 using namespace std;
 using namespace jrtplib;
 
@@ -75,12 +75,13 @@ protected:
 private:
 	string m_name;
     RecvStateEnm m_recvstate;
-    int m_dataLength;
+    size_t m_dataLength;
     int m_lengthBufferOffset;
     uint8_t m_httpTunnelHeaderBuffer[4];
     uint8_t * m_pDataBuffer;
     bool m_isrtp;
 	RECV_RTSP_CMD_CLBK RecvRtspCmd;
+	std::chrono::steady_clock::time_point m_lastRecieve;
 };
 
 #endif

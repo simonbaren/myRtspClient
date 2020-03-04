@@ -643,13 +643,13 @@ bool RTPSources::GotEntry(uint32_t ssrc)
 	return sourcelist.HasElement(ssrc);
 }
 
-RTPPacket *RTPSources::GetNextPacket()
+RTPPacket *RTPSources::GetNextPacket(ssize_t *max_size)
 {
 	if (!sourcelist.HasCurrentElement())
 		return 0;
 	
 	RTPInternalSourceData *srcdat = sourcelist.GetCurrentElement();
-	RTPPacket *pack = srcdat->GetNextPacket();
+	RTPPacket *pack = srcdat->GetNextPacket(max_size);
 	return pack;
 }
 

@@ -106,7 +106,26 @@ void MyRTPTCPSession::MyRTP_Teardown(MediaSession * media_session, struct timeva
 	BYEDestroy(RTPTime(Timeout.tv_sec, Timeout.tv_usec), 0, 0);
 }
 
-uint8_t * MyRTPTCPSession::GetMyRTPData(uint8_t * data_buf, size_t * size, unsigned long timeout_ms)
+int MyRTPTCPSession::MyRTPPoll()
+{
+	int status = 0;
+#ifndef RTP_SUPPORT_THREAD
+	if(TryLockSocket()) {
+		status = Poll();
+		// printf("DEBUG: end poll: %d\n", status);
+		UnlockSocket();
+		if(!IsError(status)) {
+			if(DestroyedClbk) {
+				DestroyedClbk();
+			} 
+		}
+	}
+#endif 
+
+	return 0;
+}
+
+uint8_t * MyRTPTCPSession::GetMyRTPData(uint8_t * data_buf, size_t * size, unsigned long timeout_ms, size_t max_size)
 {
 	if(!data_buf) {
 		fprintf(stderr, "%s: Invalide argument('data_buf==NULL')", __func__);
@@ -120,43 +139,30 @@ uint8_t * MyRTPTCPSession::GetMyRTPData(uint8_t * data_buf, size_t * size, unsig
 
 	unsigned long UsleepTimes = (timeout_ms + USLEEP_UNIT - 1) / USLEEP_UNIT; // floor the 'timeout_ms / USLEEP_UNIT'
     *size = 0;
-
+	
 	do {
-#ifndef RTP_SUPPORT_THREAD
-        if(TryLockSocket()) {
-            int status = Poll();
-            // printf("DEBUG: end poll: %d\n", status);
-            if(!IsError(status)) return NULL;
-            UnlockSocket();
-
-        }
-#endif 
 
 		BeginDataAccess();
 
 		// check incoming packets
 		if (!GotoFirstSourceWithData()) {
 			EndDataAccess();
-			usleep(USLEEP_UNIT);
-			UsleepTimes--;
-            if(UsleepTimes <= 0) {
-                break;
-            }
-			continue;
-			// return NULL;
+			return NULL;
 		}
 		RTPPacket *pack;
+		
+		ssize_t buf_size = max_size;
+		ssize_t *pbuf_size = buf_size ? &buf_size : NULL;
 
-		if(!(pack = GetNextPacket()))
+		if(!(pack = GetNextPacket(pbuf_size)))
 		{
 			EndDataAccess();
-			usleep(USLEEP_UNIT);
-			UsleepTimes--;
-            if(UsleepTimes <= 0) {
-                break;
-            }
-			continue;
-			// return NULL;
+			if (pbuf_size && buf_size < 0) {
+				*size = 1;
+				cerr << __FILE__ << __LINE__ << " no more space in buffer\n";
+				return NULL;
+			}
+			return NULL;
 		}
 
 		size_t PacketSize = 0;

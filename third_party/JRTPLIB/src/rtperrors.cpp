@@ -245,6 +245,7 @@ static RTPErrorInfo ErrorDescriptions[]=
 	{ ERR_RTP_TCPTRANS_SOCKETNOTFOUNDINDESTINATIONS, "The specified destination address (socket) was not found in the list of destinations of the TCP transmitter" },
 	{ ERR_RTP_TCPTRANS_ERRORINSEND, "An error occurred in the TCP transmitter while sending a packet" },
 	{ ERR_RTP_TCPTRANS_ERRORINRECV, "An error occurred in the TCP transmitter while receiving a packet" },
+	{ ERR_RTP_TCPTRANS_RECVTIMEOUT, "A timeout occurred in the TCP transmitter while receiving a packet" },
 	{ 0,0 }
 };
 

@@ -28,6 +28,7 @@
 #include <sys/socket.h>
 #include <strings.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -510,7 +511,13 @@ ErrorType RtspClient::DoSETUP(MediaSession * media_session, bool rtp_over_tcp, b
 
 	Sockfd = CreateTcpSockfd();
 	if(Sockfd < 0) return RTSP_INVALID_URI;
-	
+
+	socklen_t optlen = sizeof(int);
+	int optval = 512*1024;
+	if (setsockopt(Sockfd, SOL_SOCKET, SO_RCVBUF, (int *)&optval, optlen) < 0) {
+		std::cout << "Failed setsockopt " << strerror(errno);
+    }
+
 	// "CreateUdpSockfd" is only for test. 
 	// We will use jrtplib instead later. 
 	if(!SetAvailableRTPPort(media_session)) {
@@ -1760,6 +1767,11 @@ void RtspClient::SetVideoByeFromServerClbk(DESTROIED_CLBK clbk)
 	SetDestroiedClbk("video", clbk);
 }
 
+void RtspClient::SetVideoByeFromServerClbk(DESTROYED_CLBK clbk)
+{
+	SetDestroiedClbk("video", clbk);
+}
+
 int RtspClient::GetSessionTimeout(string media_type)
 {
 	MyRegex Regex;
@@ -1790,7 +1802,29 @@ void RtspClient::SetDestroiedClbk(MediaSession * media_session, DESTROIED_CLBK c
 	}
 }
 
+void RtspClient::SetDestroiedClbk(MediaSession * media_session, DESTROYED_CLBK clbk)
+{
+	if(media_session) {
+		media_session->SetRtpDestroiedClbk(clbk);
+	}
+}
+
 void RtspClient::SetDestroiedClbk(string media_type, DESTROIED_CLBK clbk)
+{
+	MyRegex Regex;
+	map<string, MediaSession *>::iterator it;
+	bool IgnoreCase = true;
+	for(it = MediaSessionMap->begin(); it != MediaSessionMap->end(); it++) {
+		if(Regex.Regex(it->first.c_str(), media_type.c_str(), IgnoreCase)) break;
+	}
+	if(it == MediaSessionMap->end()) {
+		// fprintf(stderr, "%s: No such media session\n", __func__);
+		return;
+	}
+	it->second->SetRtpDestroiedClbk(clbk);
+}
+
+void RtspClient::SetDestroiedClbk(string media_type, DESTROYED_CLBK clbk)
 {
 	MyRegex Regex;
 	map<string, MediaSession *>::iterator it;
@@ -1823,14 +1857,30 @@ uint8_t * RtspClient::GetMediaData(MediaSession * media_session, uint8_t * buf, 
         return NULL;
     }
 
+	if (max_size <= 32) {
+		return NULL;
+	}
+
+	max_size -= 32;
+
+	uint8_t *pbuf = buf;
+
 	size_t SizeTmp = 0;
 	bool EndFlag;
+	bool MorePackets = false;
     do {
         EndFlag = true;
-		if(!media_session->GetMediaData(VideoBuffer.Buf, &SizeTmp)) return NULL;
-		if(0 == SizeTmp) {
-			cerr << "No RTP data" << endl;
-			return NULL;
+		uint8_t * ret = media_session->GetMediaData(VideoBuffer.Buf, &SizeTmp, TIMEOUT_MICROSECONDS, max_size - *size);
+		if(!ret && SizeTmp == 1) {
+			pbuf = buf;
+			MorePackets = true;
+			break;
+		} else if (!ret && *size == 0) {
+			pbuf = NULL;
+			break;
+		} else if (!ret) {
+			pbuf = buf;
+			break;
 		}
 		if(SizeTmp > VideoBuffer.Size) {
 			cerr << "Error: RTP Packet too large(" << SizeTmp << " bytes > " << VideoBuffer.Size << "bytes)" << endl;
@@ -1838,8 +1888,9 @@ uint8_t * RtspClient::GetMediaData(MediaSession * media_session, uint8_t * buf, 
 		}
 
 		if(*size + SizeTmp > max_size) {
-			fprintf(stderr, "\033[31mWARNING: NALU truncated because larger than buffer: %lu(NALU size) > %lu(Buffer size)\033[0m\n", *size + SizeTmp, max_size);
-			return buf;
+			fprintf(stderr, "\033[31mWARNING: NALU truncated because larger than buffer: %lu(NALU size) + %lu(SizeTmp )> %lu(Buffer size)\033[0m\n", *size, SizeTmp, max_size);
+			pbuf = buf;
+			break;
 		}
         if(media_session->frameTypeBase->PrefixParameterEveryPacket() != 0) {
             fprintf(stderr, "PrefixParameterEveryPacket error\n");
@@ -1855,9 +1906,18 @@ uint8_t * RtspClient::GetMediaData(MediaSession * media_session, uint8_t * buf, 
         }
 		SizeTmp = media_session->frameTypeBase->CopyData(buf + (*size), VideoBuffer.Buf, SizeTmp);
 		*size += SizeTmp;
+		if (EndFlag) {
+			// We reached end of frame.
+			pbuf = buf + *size;
+			break;
+		}
     } while(!EndFlag);
 
-	return buf;
+	if (!MorePackets) {
+		media_session->PollMediaData();
+	}
+
+	return pbuf;
 }
 
 // uint8_t * RtspClient::GetAudioData(MediaSession * media_session, uint8_t * buf, size_t * size, size_t max_size)

@@ -305,8 +305,10 @@ int RTPTCPTransmitter::Poll()
 			// Stop immediately on out of memory
 			if (status == ERR_RTP_OUTOFMEM)
 				break;
-			else
-			{
+			else if (status == ERR_RTP_TCPTRANS_RECVTIMEOUT) {
+				errSockets.push_back(sock);
+				break;
+			} else  {
 				errSockets.push_back(sock);
 				// Don't let this count as an error (due to a closed connection for example),
 				// otherwise the poll thread (if used) will stop because of this. Since there

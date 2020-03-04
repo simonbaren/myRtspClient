@@ -240,7 +240,7 @@ public:
 	RTPSourceData *GetSourceInfo(uint32_t ssrc);
 
 	/** Extracts the next packet from the received packets queue of the current participant. */
-	RTPPacket *GetNextPacket();
+	RTPPacket *GetNextPacket(ssize_t *max_size = nullptr);
 
 	/** Returns \c true if an entry for participant \c ssrc exists and \c false otherwise. */
 	bool GotEntry(uint32_t ssrc);

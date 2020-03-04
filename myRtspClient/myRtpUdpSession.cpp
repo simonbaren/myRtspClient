@@ -188,7 +188,15 @@ void MyRTPUDPSession::OnRemoveSource(RTPSourceData *dat)
 	}
 }
 
-uint8_t * MyRTPUDPSession::GetMyRTPData(uint8_t * data_buf, size_t * size, unsigned long timeout_ms)
+int MyRTPUDPSession::MyRTPPoll()
+{
+	int status = Poll();
+	// printf("DEBUG: end poll: %d\n", status);
+	IsError(status);
+	return status;
+}
+
+uint8_t * MyRTPUDPSession::GetMyRTPData(uint8_t * data_buf, size_t * size, unsigned long timeout_ms, size_t max_size)
 {
 	if(!data_buf) {
 		fprintf(stderr, "%s: Invalide argument('data_buf==NULL')", __func__);
@@ -200,63 +208,47 @@ uint8_t * MyRTPUDPSession::GetMyRTPData(uint8_t * data_buf, size_t * size, unsig
 		return NULL;
 	}
 
-	unsigned long UsleepTimes = (timeout_ms + USLEEP_UNIT - 1) / USLEEP_UNIT; // floor the 'timeout_ms / USLEEP_UNIT'
     *size = 0;
 
-	do {
-#ifndef RTP_SUPPORT_THREAD
-		int status = Poll();
-		// printf("DEBUG: end poll: %d\n", status);
-		if(!IsError(status)) return NULL;
-#endif 
+	BeginDataAccess();
 
-		BeginDataAccess();
-
-		// check incoming packets
-		if (!GotoFirstSourceWithData()) {
-			EndDataAccess();
-			usleep(USLEEP_UNIT);
-			UsleepTimes--;
-            if(UsleepTimes <= 0) {
-                break;
-            }
-			continue;
-			// return NULL;
-		}
-		RTPPacket *pack;
-
-		if(!(pack = GetNextPacket()))
-		{
-			EndDataAccess();
-			usleep(USLEEP_UNIT);
-			UsleepTimes--;
-            if(UsleepTimes <= 0) {
-                break;
-            }
-			continue;
-			// return NULL;
-		}
-
-		size_t PacketSize = 0;
-		uint8_t * Packet = NULL;
-		Packet = pack->GetPayloadData();
-		PacketSize = pack->GetPayloadLength();
-		// printf("DEBUG: get packet: %d\n", PacketSize);
-		//for(int i = 0; i < PacketSize; i++) {
-		//	printf("%x ", Packet[i]);
-		//}
-		//printf("\n");
-		// printf("data length: %lu\n", PacketSize);
-
-		*size = PacketSize;
-		memcpy(data_buf, Packet, PacketSize);
-
-		// we don't longer need the packet, so
-		// we'll delete it
-		DeletePacket(pack);
+	// check incoming packets
+	if (!GotoFirstSourceWithData()) {
 		EndDataAccess();
-		UsleepTimes = 0; // Got the data. So not need to sleep any more.
-	} while(UsleepTimes > 0);
+		return NULL;
+	}
+	RTPPacket *pack;
+
+	ssize_t buf_size = max_size;
+	ssize_t *pbuf_size = buf_size ? &buf_size : NULL;
+
+	if(!(pack = GetNextPacket(pbuf_size)))
+	{
+		EndDataAccess();
+		if (pbuf_size && buf_size < 0) {
+			*size = 1;
+		}
+		return NULL;
+	}
+
+	size_t PacketSize = 0;
+	uint8_t * Packet = NULL;
+	Packet = pack->GetPayloadData();
+	PacketSize = pack->GetPayloadLength();
+	// printf("DEBUG: get packet: %d\n", PacketSize);
+	//for(int i = 0; i < PacketSize; i++) {
+	//	printf("%x ", Packet[i]);
+	//}
+	//printf("\n");
+	// printf("data length: %lu\n", PacketSize);
+
+	*size = PacketSize;
+	memcpy(data_buf, Packet, PacketSize);
+
+	// we don't longer need the packet, so
+	// we'll delete it
+	DeletePacket(pack);
+	EndDataAccess();
 
 	return data_buf;
 }

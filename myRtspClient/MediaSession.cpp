@@ -129,9 +129,14 @@ int MediaSession::RTP_Teardown(struct timeval * tval)
 	return MEDIA_SESSION_OK;
 }
 
-uint8_t * MediaSession::GetMediaData(uint8_t * buf, size_t * size, unsigned long timeout) {
+int MediaSession::PollMediaData() {
+	if(!RTPInterface) return -1;
+	return RTPInterface->MyRTPPoll();
+}
+
+uint8_t * MediaSession::GetMediaData(uint8_t * buf, size_t * size, unsigned long timeout, size_t max_size) {
 	if(!RTPInterface) return NULL;
-	return  RTPInterface->GetMyRTPData(buf, size, timeout);
+	return  RTPInterface->GetMyRTPData(buf, size, timeout, max_size);
 }
 
 uint8_t * MediaSession::GetMediaPacket(uint8_t * buf, size_t * size, unsigned long timeout) {
@@ -183,6 +188,12 @@ int MediaSession::GetTunnellingSocket()
 
 
 void MediaSession::SetRtpDestroiedClbk(void (*clbk)()) { 
+	if(RTPInterface) {
+		RTPInterface->SetDestroiedClbk(clbk);
+	}
+}
+
+void MediaSession::SetRtpDestroiedClbk(std::function<void(void)> clbk) { 
 	if(RTPInterface) {
 		RTPInterface->SetDestroiedClbk(clbk);
 	}

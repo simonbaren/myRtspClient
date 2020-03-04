@@ -170,7 +170,7 @@ protected:
 	virtual ~RTPSourceData();
 public:
 	/** Extracts the first packet of this participants RTP packet queue. */
-	RTPPacket *GetNextPacket();
+	RTPPacket *GetNextPacket(ssize_t *max_size = nullptr);
 
 	/** Clears the participant's RTP packet list. */
 	void FlushPackets();
@@ -450,7 +450,7 @@ protected:
 	size_t byereasonlen;
 };
 
-inline RTPPacket *RTPSourceData::GetNextPacket()
+inline RTPPacket *RTPSourceData::GetNextPacket(ssize_t *max_size)
 {
 	if (!validated)
 		return 0;
@@ -460,6 +460,10 @@ inline RTPPacket *RTPSourceData::GetNextPacket()
 	if (packetlist.empty())
 		return 0;
 	p = *(packetlist.begin());
+	if (max_size && (size_t)*max_size < p->GetPayloadLength()) {
+		*max_size = -p->GetPayloadLength();
+		return nullptr;
+	}
 	packetlist.pop_front();
 	return p;
 }

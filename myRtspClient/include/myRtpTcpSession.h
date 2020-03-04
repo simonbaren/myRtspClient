@@ -35,10 +35,12 @@ class MyRTPTCPSession : public MyRTPSession
 
 		/* Wait 1 second for TEARDOWN at default */
 		virtual void MyRTP_Teardown(MediaSession * media_session, struct timeval * tval = NULL);
-		virtual uint8_t * GetMyRTPData(uint8_t * data_buf, size_t * size, unsigned long timeout_ms);
+		int MyRTPPoll();
+		virtual uint8_t * GetMyRTPData(uint8_t * data_buf, size_t * size, unsigned long timeout_ms, size_t max_size = 0);
 		virtual uint8_t * GetMyRTPPacket(uint8_t * packet_buf, size_t * size, unsigned long timeout_ms);
 
 		void SetDestroiedClbk(void (*clbk)()) {DestroiedClbk = clbk;}
+		void SetDestroiedClbk(std::function<void(void)> clbk) {DestroyedClbk = clbk;}
 
         virtual void LockSocket();
         virtual void UnlockSocket();
@@ -57,6 +59,7 @@ class MyRTPTCPSession : public MyRTPSession
 	private:
         int TunnellingSock;
 		void (*DestroiedClbk)();
+		std::function<void(void)> DestroyedClbk;
         pthread_mutex_t SocketMutex;
         int TrylockTimes;
 
